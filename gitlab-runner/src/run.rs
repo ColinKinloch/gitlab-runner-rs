@@ -201,15 +201,21 @@ impl Run {
         interval
     }
 
-    async fn update(&self, state: JobState, cancel_token: &CancellationToken) {
+    async fn update(&self, state: JobState, cancel_token: &CancellationToken) -> Option<Duration> {
         match self
             .client
             .update_job(self.response.id, &self.response.token, state)
             .await
         {
-            Ok(_reply) => (),
-            Err(crate::client::Error::JobCancelled) => cancel_token.cancel(),
-            Err(err) => warn!("Failed to update job status: {:?}", err),
+            Ok(reply) => reply.trace_update_interval,
+            Err(crate::client::Error::JobCancelled) => {
+                cancel_token.cancel();
+                None
+            }
+            Err(err) => {
+                warn!("Failed to update job status: {:?}", err);
+                None
+            }
         }
     }
 
